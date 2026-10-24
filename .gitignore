@@ -1,0 +1,14 @@
+bin/
+coverage.out
+*.test
+
+# Never commit a ledger: it is an audit record of your own traffic.
+*.jsonl
+.airlock/
+
+# A local policy may name internal hosts or custom detector patterns.
+airlock.local.yaml
+
+.DS_Store
+.idea/
+.vscode/

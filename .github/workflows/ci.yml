@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.21', '1.23']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: gofmt
+        run: |
+          out=$(gofmt -l ./cmd ./internal)
+          if [ -n "$out" ]; then echo "gofmt needed:"; echo "$out"; exit 1; fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test -race -count=1 ./...
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      # The shipped policy template must load, and the dry run must redact.
+      - name: init and scan
+        run: |
+          go build -o airlock ./cmd/airlock
+          ./airlock init --out airlock.yaml
+          printf 'mail priya.r@acme.co card 4111 1111 1111 1111\n' \
+            | ./airlock scan --policy airlock.yaml --quiet > out.txt
+          cat out.txt
+          grep -q 'AL:EMAIL_1' out.txt
+          grep -q 'AL:CARD_1' out.txt
+          if grep -q 'priya.r@acme.co' out.txt; then
+            echo "FAIL: the address survived the scan"; exit 1
+          fi
